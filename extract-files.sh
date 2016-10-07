@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #set -e
-export FAMILY=g2-common
+export FAMILY=v935-common
 export VENDOR=lge
 
 function extract() {

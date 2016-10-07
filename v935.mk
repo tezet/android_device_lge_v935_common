@@ -15,7 +15,7 @@
 #
 
 # Call common vendor
-$(call inherit-product-if-exists, vendor/lge/g2-common/g2-common-vendor.mk)
+$(call inherit-product-if-exists, vendor/lge/v935-common/v935-common-vendor.mk)
 
 # Overlays
 DEVICE_PACKAGE_OVERLAYS := $(LOCAL_PATH)/overlay
@@ -120,13 +120,13 @@ PRODUCT_COPY_FILES += \
 
 # Init
 PRODUCT_PACKAGES += \
-    fstab.g2 \
-    init.g2.rc \
-    init.g2.power.rc \
-    init.g2.usb.rc \
-    init.recovery.g2.rc \
+    fstab.v935 \
+    init.v935.rc \
+    init.v935.power.rc \
+    init.v935.usb.rc \
+    init.recovery.v935.rc \
     set_baseband.sh \
-    ueventd.g2.rc
+    ueventd.v935.rc
 
 # IPv6 tethering
 PRODUCT_PACKAGES += \
@@ -183,7 +183,7 @@ PRODUCT_PACKAGES += \
 
 # Recovery
 PRODUCT_PACKAGES += \
-    librecovery_updater_g2
+    librecovery_updater_v935
 
 # RIL
 PRODUCT_PACKAGES += \
