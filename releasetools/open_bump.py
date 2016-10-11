@@ -27,10 +27,6 @@ import sys
 # Proof of Concept
 POC = False
 
-if POC:
-    from Crypto.Cipher import AES
-    import hashlib
-
 
 usage = """\
 Usage: open_bump.py [-ha] "<image_file>" "<output_image>"
@@ -39,29 +35,22 @@ Usage: open_bump.py [-ha] "<image_file>" "<output_image>"
   -a/--apend image_file  - <required> if in append mode, the <image_file> is appended rather than <output_file> being generated\
 """
 
-lg_key = "b5e7fc2010c4a82d6d597ba040816da7832e0a5679c81475a0438447b711140f"
-lg_iv = "$ecure-W@|lp@per"
 lg_magic = "41a9e467744d1d1ba429f2ecea655279"
-lg_dec_magic = "696e6877612e77651000000047116667"
 
 
-def generate_signature(image_hash):
-    # the iv and key were extracted from the lg g2 aboot.img. I can explain how to find it on request.
-    iv = lg_iv
-    key = binascii.unhexlify(lg_key)
-    # this "magic" number was found after decrypting the bumped images
-    # Without codefire, this would not have been possible as I can find no reference in
-    # the images of the g2 or the g3
-    magic = binascii.unhexlify(lg_magic)
-    image_hash = binascii.unhexlify(image_hash)  # insert your hash here
-    # the structure of the signature in bump starts with a magic number, then seemingly random
-    # bytes. 2 zeros follow, then the hash of the image, then 6 zeros, then 512 bytes of random data again
-    data = magic + os.urandom(16) + '\x00'*2 + image_hash + '\x00'*6 + os.urandom(512)
-    # this is then padded to fill the needed 1024 bytes
-    padded_data = data + '\x00'*(1024-len(data))
-    # AES-256 is then used to encrypt the above data
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    return cipher.encrypt(padded_data)
+def get_kernel_size(image_name):
+    page_size = get_page_size(image_name)
+    f_image = open(image_name, 'a+b')
+    paged_kernel_size = get_size_from_kernel(f_image, page_size, 8)
+    paged_ramdisk_size = get_size_from_kernel(f_image, page_size, 16)
+    paged_second_size = get_size_from_kernel(f_image, page_size, 24)
+    if paged_second_size <= 0:
+        paged_second_size = 0
+    paged_dt_size = get_size_from_kernel(f_image, page_size, 40)
+    if paged_dt_size <= 0:
+        paged_dt_size = 0
+    f_image.close()
+    return page_size + paged_kernel_size + paged_ramdisk_size + paged_second_size + paged_dt_size
 
 
 def bumped(image_data):
@@ -91,17 +80,9 @@ def pad_image(image_name):
     image_size = os.path.getsize(image_name)
     num_pages = image_size / page_size
 
-    f_image = open(image_name, 'a+b')
+    calculated_size = get_kernel_size(image_name)
 
-    paged_kernel_size = get_size_from_kernel(f_image, page_size, 8)
-    paged_ramdisk_size = get_size_from_kernel(f_image, page_size, 16)
-    paged_second_size = get_size_from_kernel(f_image, page_size, 24)
-    if paged_second_size <= 0:
-        paged_second_size = 0
-    paged_dt_size = get_size_from_kernel(f_image, page_size, 40)
-    if paged_dt_size <= 0:
-        paged_dt_size = 0
-    calculated_size = page_size + paged_kernel_size + paged_ramdisk_size + paged_second_size + paged_dt_size
+    f_image = open(image_name, 'a+b')
 
     if calculated_size > image_size:
         print("Invalid image: %s: calculated size greater than actual size" % image_name)
@@ -110,7 +91,8 @@ def pad_image(image_name):
     if image_size > calculated_size:
         difference = image_size - calculated_size
         if difference not in [page_size, page_size*2]:
-            if difference not in [1024, page_size + 1024, 2 * page_size + 1024]:
+            if difference not in [1024, page_size + 1024, 2 * page_size + 1024, 
+                                  16, page_size + 16, 2 * page_size + 16]:
                 print("Image already padded. Attempting to remove padding...")
                 print("Beware: this may invalidate your image.")
                 i = num_pages - 1
@@ -146,11 +128,7 @@ def main(in_image, out_image):
         print("Image already bumped")
         finish(out_image)
     pad_image(out_image)
-    if POC:
-        sha1sum = get_sha1(out_image)
-        magic = generate_signature(sha1sum)
-    else:
-        magic = binascii.unhexlify(lg_magic)
+    magic = binascii.unhexlify(lg_magic)
     with open(out_image, 'a+b') as f_out_image:
         f_out_image.write(magic)
     finish(out_image)
